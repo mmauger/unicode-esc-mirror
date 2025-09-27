@@ -1,0 +1,11 @@
+* Unicode Escape
+
+** Installation
+Install the ~unicode-escape~ package as follows:
+#+BEGIN_SRC emacs-lisp
+  (use-package unicode-escape
+    :vc ( :url "https://gitlab.com/mmauger/unicode-escape"
+          :rev :newest )
+    )
+
+#+END_SRC
