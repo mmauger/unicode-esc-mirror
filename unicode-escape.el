@@ -7,7 +7,7 @@
 ;; Keywords: lisp, faces, tools
 ;; Package-Type: simple
 ;; Package-Requires: ((emacs "29.1"))
-;; Version: 0.9.250930
+;; Version: 1.0.251001
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -290,10 +290,10 @@ Key  Returns  Description
   "Parse the current match and return the escape style.
 
 This function recognizes the following strings:
- + \\N{name}
- + \\N{U+x...x}
- + \\Uxxxx
- + \\Uxxxxxxxx
+ + \N{name}
+ + \N{U+x...x}
+ + \Uxxxx
+ + \Uxxxxxxxx
  + a literal Unicode (non-ASCII) character."
   (let* ((\\N-name (match-string-no-properties 1))
          (\\U-name (match-string-no-properties 2))
@@ -307,10 +307,10 @@ This function recognizes the following strings:
   "Parse the current match and return the character code.
 
 This function recognizes the following strings:
- + \\N{name}
- + \\N{U+x...x}
- + \\Uxxxx
- + \\Uxxxxxxxx
+ + \N{name}
+ + \N{U+x...x}
+ + \Uxxxx
+ + \Uxxxxxxxx
  + a literal Unicode (non-ASCII) character."
 
   (let* ((\\N-name (match-string-no-properties 1))
