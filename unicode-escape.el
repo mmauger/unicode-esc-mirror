@@ -105,32 +105,87 @@
                  (const :tag "\\Uxxxx"         :\U)
                  (const :tag "Literal Unicode" :literal)))
 
+;;; ============================================================
+;;; Update Unicode escape at point
+
 ;;;###autoload
 (defun ue/update-escape-at-point (&optional style)
   "Update Unicode expression at point with STYLE escape syntax.
 
 When called from elisp, the optional STYLE is a value permitted in
+`ue/default-escape-style'.  If omitted, it will use the style defined in
 `ue/default-escape-style'.
 
-When called interactively, STYLE is the prefix argument.  If omitted or
-nil, it defaults to 1.  The prefix argument is translated into a escape
-style keyword as follows:
- + None: The value of `unicode-escape-default-escape-style'
- + \\[universal-argument] (4): `:literal'
- + \\[universal-argument] \\[universal-argument] (16): `:\\N'
- + \\[universal-argument] \\[universal-argument] \\[universal-argument] (64): `:\\U'"
+When called interactively, STYLE is the prefix argument.  If omitted it
+ uses `ue/default-escape-style', but with a prefix argument it will
+ prompt for the format."
 
   (interactive "p")
-  (setq style (ue/-style-argument style))
   (if (looking-at (rx ue/-char-re))
-      (let* ((old-esc (match-string-no-properties 0))
-             (ucs     (ue/-get-char))
-             (new-esc (ue/-replacement-string style ucs)))
-        (if (and ucs new-esc
-                 (not (string= new-esc old-esc)))
-            (replace-match new-esc t t)
-          (goto-char (match-end 0))))
+      (let* ((save-md    (match-data))
+             (end-esc    (match-end 0))
+             (old-esc    (match-string-no-properties 0))
+             (old-style  (ue/-get-style))
+             (ucs        (ue/-get-char))
+             (new-style  (ue/-style-argument style old-esc old-style ucs)))
+        (pcase new-style
+          ((or `:\\N `:\\U `:literal)
+            (let ((new-esc (ue/-replacement-string new-style ucs)))
+              (set-match-data save-md)
+              (if (string= old-esc new-esc)
+                  (goto-char end-esc)
+                (replace-match new-esc t t))))
+          (`quit
+           (goto-char end-esc))))
     (forward-char 1)))
+
+(defun ue/-style-argument (style old-esc old-style ucs)
+  "Calculate the STYLE for UCS or revert to OLD-ESC style (OLD-STYLE)."
+  (cond
+   ((or (not style)
+        (and (numberp style)
+             (= style 1)))
+    ue/default-escape-style)
+   ((and (keywordp style)
+         (memq style '(:\\N :\\U :literal)))
+    style)
+   ((numberp style)
+    (let (new-style)
+      (while (not new-style)
+        (setq new-style (ue/-ask-style old-esc old-style ucs)))
+      new-style))))
+
+(defun ue/-ask-style (old-esc old-style ucs)
+  "Ask for style of replacement for OLD-ESC (in OLD-STYLE) which is UCS."
+  (let* ((prompt   (concat "Replace \"%s\" with: ("
+                           (ue/-format-style-prompt old-esc old-style ucs)
+                           "; Q/C-g: Quit) "))
+         answer)
+    (while (not answer)
+      (setq answer
+            (pcase (read-key (format prompt old-esc))
+              ((or `?n `?N)         :\\N)
+              ((or `?u `?U)         :\\U)
+              ((or `?l `?L)         :literal)
+              (`?\s                 old-style)
+              ((or `?q `?Q `?\C-g)  'quit)
+              (_                    (ding) nil))))
+    answer))
+
+(defun ue/-format-style-prompt (old-esc old-style ucs)
+  "Format prompt for styles for UCS that are different from OLD-ESC in OLD-STYLE."
+  (string-join
+   (mapcan
+    (lambda (selector-and-style)
+      (let ((new-esc (ue/-replacement-string (cadr selector-and-style) ucs)))
+        (unless (string= new-esc old-esc)
+          (list (format "%s: %s" (car selector-and-style)
+                        (or (caddr selector-and-style) (concat "`" new-esc "'")))))))
+    `(("N" :\\N)
+      ("U" :\\U)
+      ("L" :literal)
+      ("SPC" ,old-style "Same style")))
+   "; "))
 
 ;;;###autoload
 (defun ue/update-escapes (&optional style)
