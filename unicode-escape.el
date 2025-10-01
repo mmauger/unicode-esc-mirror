@@ -36,6 +36,13 @@
 (require 'font-lock)
 (require 'rx)
 
+(defgroup unicode-escape nil
+  "Display and update Unicode character references."
+  :group 'lisp
+  :prefix "unicode-escape-")
+
+;;; Regular expressions to match Unicode escape strings
+
 ;; \N{name} or \N{U+x…x}
 (rx-define ue/-N-escape      (seq ?\\ ?N ?{ (group-n 1 (+ (not (in ?})))) ?}))
 (rx-define ue/-N-U+xdigits   (seq string-start ?U ?+ (+ xdigit) string-end))
@@ -50,23 +57,14 @@
                                       ue/-U-escape
                                       ue/-literal)))
 
-(defvar ue/font-lock-keywords
-  `( ;; \N{name} or \N{U+xx..xx}
-     ( ,(rx ue/-N-escape) (0 (ue/prettify)) )
-     ;; \Uxxxx or \Uxxxxxxxx
-     ( ,(rx ue/-U-escape) (0 (ue/prettify)) ))
-  "Define `font-lock' keywords to match Lisp \\N and \\U literals.")
+;;; ============================================================
+;;; Minor mode to fontify Unicode escape strings
 
 (defvar-keymap ue/mode-map
   :doc "Mode map used for `unicode-escape-mode'."
   :parent nil
   "C-x 8 %"  #'ue/update-escapes
   "C-x 8 @"  #'ue/update-escape-at-point)
-
-(defgroup unicode-escape nil
-  "Display and update Unicode character references."
-  :group 'lisp
-  :prefix "unicode-escape-")
 
 ;;;###autoload
 (define-minor-mode ue/mode
@@ -84,11 +82,34 @@
   (if ue/mode
       (progn
         (unless prettify-symbols-mode
-          (message "`unicode-escape-mode' requires that `prettify-symbols-mode' is enabled")
+          (message "`unicode-escape-mode' requires that `prettify-symbols-mode' is enabled; now enabled.")
           (prettify-symbols-mode +1))
         (font-lock-add-keywords nil ue/font-lock-keywords))
     (font-lock-remove-keywords nil ue/font-lock-keywords))
   (font-lock-update))
+
+;;; ============================================================
+;;; Font-lock Unicode escapes using `prettify-symbols-mode'
+
+(defvar ue/font-lock-keywords
+  `( ;; \N{name} or \N{U+xx..xx}
+     ( ,(rx ue/-N-escape) (0 (ue/prettify)) )
+     ;; \Uxxxx or \Uxxxxxxxx
+     ( ,(rx ue/-U-escape) (0 (ue/prettify)) ))
+  "Define `font-lock' keywords to match Lisp \\N and \\U literals.")
+
+(defun ue/prettify ()
+  "Font lock Unicode escape with the Unicode character."
+  (when-let* (ue/mode
+              (ucs      (ue/-get-char))
+              (old-esc  (match-string-no-properties 0))
+	      (alist    `((,old-esc . ,ucs))))
+    (let ((prettify-symbols-compose-predicate
+	   (lambda (_start _end _match) t)))
+      (prettify-symbols--compose-symbol alist))))
+
+;;; ============================================================
+;;; Settings for default generation of Unicode escapes
 
 ;;;###autoload
 (defcustom ue/char-name-default-case #'capitalize
@@ -99,10 +120,10 @@
                  (const :tag "UPPER CASE"  upcase)))
 
 ;;;###autoload
-(defcustom ue/default-escape-style :\N
+(defcustom ue/default-escape-style :\\N
   "Default Unicode escape format."
-  :type '(choice (const :tag "\\N{name}"       :\N)
-                 (const :tag "\\Uxxxx"         :\U)
+  :type '(choice (const :tag "\\N{name}"       :\\N)
+                 (const :tag "\\Uxxxx"         :\\U)
                  (const :tag "Literal Unicode" :literal)))
 
 ;;; ============================================================
