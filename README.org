@@ -1,4 +1,4 @@
-* Unicode Escape
+* Unicode Esc
 
 Emacs lisp supports Unicode codepoints in symbols, comments, strings
 and character literals. Lisp also supports "escape" syntax in strings
@@ -59,13 +59,13 @@ will look like the following:
 
 
 * Configuration
-When ~unicode-escape-mode~ is enabled, it insures that
+When ~unicode-esc-mode~ is enabled, it insures that
 ~prettify-symbols-mode~ is also enabled. Setting
 ~prettify-symbols-unprettify-at-point~ to a non-nil value will display
 the underlying escape string rather than the Unicode character when
 the cursor is on the character.
 
-** Custom Variable: ~unicode-escape-char-name-default-case~
+** Custom Variable: ~unicode-esc-char-name-default-case~
 When ~\N{char-name}~ escapes are generated, the char-name is the Unicode
 assigned name (or "old name"). Elisp ignores the letter-case of the
 name so when we generate the escape, this variable identifies the
@@ -73,17 +73,17 @@ function which adjusted the letter-case of the official name. By
 default, the name is capitalized, but it can be left as-is, up cased,
 or down cased as well.
 
-** Custom Variable: ~unicode-escape-default-escape-style~
+** Custom Variable: ~unicode-esc-default-escape-style~
 By default, when escape strings are generated, they are ~\N{}~, but is
 can be set to generate ~\U~ escapes or literal Unicode characters.
 
-** Interactive function: ~unicode-escape-update-at-point~
+** Interactive function: ~unicode-esc-update-at-point~
 If point is on a Unicode character or an escape sting, it will be
 updated to the default escape style. If the function is invoked with a
 prefix argument, you may choose the escape style for this invocation
 only.
 
-** Interactive function: ~unicode-escape-update-escapes~
+** Interactive function: ~unicode-esc-update-escapes~
 This function loops through each Unicode character and escape string
 in the buffer and updates them to the default escape style. If you
 insert Unicode characters via =C-x 8 RET= in your buffer, you can then
@@ -92,10 +92,10 @@ function, when called with a prefix argument, you can choose what
 escape style to use.
 
 * Installation
-Install the ~unicode-escape~ package as follows:
+Install the ~unicode-esc~ package as follows:
 #+BEGIN_SRC emacs-lisp
-  (use-package unicode-escape
-    :vc ( :url "https://gitlab.com/mmauger/unicode-escape"
+  (use-package unicode-esc
+    :vc ( :url "https://gitlab.com/mmauger/unicode-esc"
           :rev :newest )
     :hook (emacs-lisp-mode)
     )
