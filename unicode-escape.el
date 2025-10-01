@@ -7,7 +7,7 @@
 ;; Keywords: lisp, faces, tools
 ;; Package-Type: simple
 ;; Package-Requires: ((emacs "29.1"))
-;; Version: 1.0
+;; Version: 0.9.250930
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -263,4 +263,5 @@ This function recognizes the following strings:
 ;;; unicode-escape.el ends here
 ;; Local Variables:
 ;; read-symbol-shorthands: (("ue/" . "unicode-escape-"))
+;; time-stamp-pattern: "20/Version:[\s\t]*\\(?:[[:digit:]]+[.]\\)+%y%m%d\n"
 ;; End:
