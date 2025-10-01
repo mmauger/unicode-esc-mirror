@@ -1,11 +1,71 @@
 * Unicode Escape
 
+Emacs lisp supports Unicode codepoints in symbols, comments, strings
+and character literals. Lisp also supports "escape" syntax in strings
+and characters that express the Unicode codepoints entirely in 7bit
+ASCII characters by using the hexadecimal codepoint, or the Unicode
+character name. While these escape strings are safe for storage and
+display regardless of the editor's frame, they are not visually
+clear. The purpose of this package is to display the specified Unicode
+character on the screen over the encoded escape string. It uses the
+machinery provided by ~prettify-symbols-mode~ to display the Unicode
+characters while storing the escape string.
+
+** Unicode escapes
+
+|---------------+-----------------------------------------------------|
+| =Escape=        | =Description=                                         |
+|---------------+-----------------------------------------------------|
+| ~\N{char-name}~ | Display Unicode character from ~(char-from-name …)~   |
+| ~\N{U+xx…xx}~   | Display Unicode character ~U+xx…xx~                   |
+| ~\Uxxxx~        | Display Unicode character ~U+xxxx~ (4 hex digits)     |
+| ~\Uxxxxxxxx~    | Display Unicode character ~U+xxxxxxxx~ (8 hex digits) |
+|---------------+-----------------------------------------------------|
+For example:
+#+begin_example
+              character: 🐕 (displayed as 🐕) (codepoint 128021, #o372025, #x1f415)
+                charset: unicode (Unicode (ISO10646))
+  code point in charset: 0x1F415
+               to input: type "C-x 8 RET 1f415" or "C-x 8 RET DOG"
+                   name: DOG
+#+end_example
+
+We can put a "dog" Unicode character into our elisp code either by
+entering the codepoint directly into the buffer using the ~C-x 8 RET~
+recipes described by =to input:= above; or by using one of the Unicode escape strings
+supported by Emacs: ~\N{DOG}~ or ~\U0001f415~.
+
+With this package enabled, a line in an elisp script that contains the
+following:
+#+begin_src emacs-lisp
+  ;;
+  ;; Examples:
+  ;;   N escapes:   \N{Duck} \N{DUCK} \N{duck}
+  ;;   N U+ escape: \N{U+1f986}
+  ;;   U escape:    \U0001f986
+  ;;   Literal:     🦆
+  ;;
+#+end_src
+will look like the following:
+#+begin_src emacs-lisp
+  ;;
+  ;; Examples:
+  ;;   N escapes:   🦆 🦆 🦆
+  ;;   N U+ escape: 🦆
+  ;;   U escape:    🦆
+  ;;   Literal:     🦆
+  ;;
+#+end_src
+
 ** Installation
 Install the ~unicode-escape~ package as follows:
 #+BEGIN_SRC emacs-lisp
   (use-package unicode-escape
     :vc ( :url "https://gitlab.com/mmauger/unicode-escape"
           :rev :newest )
+    :hook (emacs-lisp-mode)
     )
 
 #+END_SRC
+
+#  LocalWords:  codepoints codepoint
