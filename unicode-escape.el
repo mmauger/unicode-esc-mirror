@@ -187,67 +187,100 @@ When called interactively, STYLE is the prefix argument.  If omitted it
       ("SPC" ,old-style "Same style")))
    "; "))
 
+;;; ============================================================
+;;; Update all valid Unicode escape sequences in buffer
+
 ;;;###autoload
 (defun ue/update-escapes (&optional style)
   "Update each Unicode character or escape with STYLE escape syntax.
 
 When called from elisp, the optional STYLE is a value permitted in
-`ue/default-escape-style'.
+`ue/default-escape-style'.  If omitted, it will use the style defined in
+`ue/default-escape-style'.  This style will be used for all
+replacements.
 
-When called interactively, STYLE is the prefix argument.  If omitted or
-nil, it defaults to 1.  The prefix argument is translated into a escape
-style keyword as follows:
- + None: The value of `unicode-escape-default-escape-style'
- + \\[universal-argument] (4): `:literal'
- + \\[universal-argument] \\[universal-argument] (16): `:\\N'
- + \\[universal-argument] \\[universal-argument] \\[universal-argument] (64): `:\\U'"
+When called interactively, STYLE is the prefix argument.  If omitted it
+ uses `ue/default-escape-style' for all replacements.  With the prefix
+ argument, the user may choose the style for each replacement string."
 
   (interactive "p")
-  (setq style (ue/-style-argument style))
-  (let (ask-all do-quit)
-    (while (and (not do-quit)
-                (re-search-forward (rx ue/-char-re) nil t))
-      (let* ((old-esc (match-string-no-properties 0))
-             (ucs     (ue/-get-char))
-             (new-esc (ue/-replacement-string style old-esc))
-             do-replace)
-        (if (and ucs new-esc)
-            (progn
-              (pcase (or ask-all
-                         (read-key (format "Replace `%s' with `%s'? %s "
-					   old-esc new-esc "(y, n, ., !, or q)")))
-                ((or ?y ?Y)  (setq do-replace t))
-                ((or ?n ?N)  (setq do-replace nil))
-                (?.          (setq do-replace t
-                                   do-quit    t))
-                (?!          (setq do-replace t
-                                   ask-all    ?!))
-                ((or ?q ?Q ?\C-g)
-                             (setq do-replace nil
-                                   do-quit    t))
-                (_           (beep)))
-              (when do-replace
-                (replace-match new-esc t t)))
-          (goto-char (match-end 0)))))))
+  (let (do-all do-quit do-replace)
+    (save-excursion
+      (while (and (not do-quit)
+                  (re-search-forward (rx ue/-char-re) nil t))
+        (let* ((save-md    (match-data))
+               (end-esc    (match-end 0))
+               (old-esc    (match-string-no-properties 0))
+               (old-style  (ue/-get-style))
+               (ucs        (ue/-get-char)))
+          (when ucs
+            (setq style (ue/-style-argument style old-esc old-style ucs))
+            (unless (called-interactively-p 'interactive)
+              (setq do-all 'all))
+            (pcase (or do-all (ue/-query-update old-esc ucs style))
+              (`t            (setq do-replace t))
+              (`skip         (setq do-replace nil))
+              (`one-and-quit (setq do-replace t
+                                   do-quit t))
+              (`all          (setq do-replace t
+                                   do-all 'all))
+              (`quit         (setq do-replace nil
+                                   do-quit t)))
+            (if do-replace
+                (let ((new-esc (ue/-replacement-string style ucs)))
+                  (set-match-data save-md)
+                  (if (string= old-esc new-esc)
+                      (goto-char end-esc)
+                    (undo-boundary)
+                    (replace-match new-esc t t)))
+              (goto-char end-esc))))))))
 
-(defun ue/-style-argument (style)
-  "Translate style argument into supported STYLE keywords."
-  (cond
-   ((not style)
-    ue/default-escape-style)
-   ((and (keywordp style)
-         (memq style '(:\N :\U :literal)))
-    style)
-   ((numberp style)
-    (assoc-default style
-                   '((1  . ue/default-escape-style)
-                     (4  . :literal)
-                     (16 . :\N)
-                     (64 . :\U))
-                   #'=
-                   ue/default-escape-style))
-   (t
-    (user-error "Unrecognized style specification %S" style))))
+(defun ue/-query-update (old-esc ucs style)
+  "Should we update UCS as OLD-ESC with STYLE?
+
+Key  Returns  Description
+---  -------  ----------------------------------------------
+ Y   t        Do update
+ N   nil      Skip update
+ .   one-and-quit
+              Update this one and then quit
+ !   all      Go ahead and update all
+ Q   quit     Update no more"
+  (let* ((prompt    (ue/-format-update-prompt old-esc ucs style))
+         (answer    nil))
+    (while (not answer)
+      (setq answer
+            (pcase (read-key prompt)
+              ((or `?y `?Y)         t)
+              ((or `?n `?N)         'skip)
+              (`?.                  'one-and-quit)
+              (`?!                  'all)
+              ((or `?q `?Q `?\C-g)  'quit)
+              (_                    (ding) nil))))
+    answer))
+
+(defun ue/-format-update-prompt (old-esc ucs style)
+  "Format query to update OLD-ESC with UCS in STYLE."
+  (format "Replace \"%s\" with \"%s\": (y, n, ., !, q) "
+          old-esc
+          (ue/-replacement-string style ucs)))
+
+(defun ue/-get-style ()
+  "Parse the current match and return the escape style.
+
+This function recognizes the following strings:
+ + \\N{name}
+ + \\N{U+x...x}
+ + \\Uxxxx
+ + \\Uxxxxxxxx
+ + a literal Unicode (non-ASCII) character."
+  (let* ((\\N-name (match-string-no-properties 1))
+         (\\U-name (match-string-no-properties 2))
+         (lit-name (match-string-no-properties 3)))
+    (cond
+     (\\N-name  :\\N)
+     (\\U-name  :\\U)
+     (lit-name  :literal))))
 
 (defun ue/-get-char ()
   "Parse the current match and return the character code.
@@ -286,33 +319,23 @@ This function recognizes the following strings:
          (style-char      (nth 1 name-case-param))
          (format-char     (nth 2 name-case-param)))
     (pcase style
-      (:\N
+      (:\\N
        (if-let* ((name (char-to-name ucs)))
            (concat "\\N{" (funcall ue/char-name-default-case name) "}")
          (concat "\\N{U+"
                  (format (concat "%" format-char) ucs)
                  "}")))
 
-      (:\U
-           (format (concat "\\" style-char "%"
-                           (if (> ucs #xffff)
-                               "08"
-                             "04")
-                           format-char)
-                   ucs))
+      (:\\U
+       (format (concat "\\" style-char "%"
+                       (if (> ucs #xffff)
+                           "08"
+                         "04")
+                       format-char)
+               ucs))
 
       (:literal
        (string ucs)))))
-
-(defun ue/prettify ()
-  "Font lock Unicode escape with the Unicode character."
-  (when-let* (ue/mode
-              (ucs      (ue/-get-char))
-              (old-esc  (match-string-no-properties 0))
-	      (alist    `((,old-esc . ,ucs))))
-    (let ((prettify-symbols-compose-predicate
-	   (lambda (_start _end _match) t)))
-      (prettify-symbols--compose-symbol alist))))
 
 (provide 'unicode-escape)
 ;;; unicode-escape.el ends here
