@@ -1,4 +1,4 @@
-;;; unicode-escape.el --- font-lock Unicode \N and \U escapes   -*- lexical-binding: t; -*-
+;;; unicode-esc.el --- font-lock Unicode \N and \U escapes   -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025  Michael R. Mauger
 
@@ -36,10 +36,10 @@
 (require 'font-lock)
 (require 'rx)
 
-(defgroup unicode-escape nil
+(defgroup unicode-esc nil
   "Display and update Unicode character references."
   :group 'lisp
-  :prefix "unicode-escape-")
+  :prefix "unicode-esc-")
 
 ;;; Regular expressions to match Unicode escape strings
 
@@ -61,7 +61,7 @@
 ;;; Minor mode to fontify Unicode escape strings
 
 (defvar-keymap ue/mode-map
-  :doc "Mode map used for `unicode-escape-mode'."
+  :doc "Mode map used for `unicode-esc-mode'."
   :parent nil
   "C-x 8 %"  #'ue/update-escapes
   "C-x 8 @"  #'ue/update-escape-at-point)
@@ -82,7 +82,7 @@
   (if ue/mode
       (progn
         (unless prettify-symbols-mode
-          (message "`unicode-escape-mode' requires that `prettify-symbols-mode' is enabled; now enabled.")
+          (message "`unicode-esc-mode' requires enabling `prettify-symbols-mode'; now enabled.")
           (prettify-symbols-mode +1))
         (font-lock-add-keywords nil ue/font-lock-keywords))
     (font-lock-remove-keywords nil ue/font-lock-keywords))
@@ -261,12 +261,12 @@ When called interactively, STYLE is the prefix argument.  If omitted it
 
 Key  Returns  Description
 ---  -------  ----------------------------------------------
- Y   t        Do update
- N   nil      Skip update
+Y/y  t        Do update
+N/n  nil      Skip update
  .   one-and-quit
               Update this one and then quit
  !   all      Go ahead and update all
- Q   quit     Update no more"
+Q/q  quit     Update no more"
   (let* ((prompt    (ue/-format-update-prompt old-esc ucs style))
          (answer    nil))
     (while (not answer)
@@ -290,10 +290,10 @@ Key  Returns  Description
   "Parse the current match and return the escape style.
 
 This function recognizes the following strings:
- + \N{name}
- + \N{U+x...x}
- + \Uxxxx
- + \Uxxxxxxxx
+ + \\N{name}
+ + \\N{U+x...x}
+ + \\Uxxxx
+ + \\Uxxxxxxxx
  + a literal Unicode (non-ASCII) character."
   (let* ((\\N-name (match-string-no-properties 1))
          (\\U-name (match-string-no-properties 2))
@@ -307,10 +307,10 @@ This function recognizes the following strings:
   "Parse the current match and return the character code.
 
 This function recognizes the following strings:
- + \N{name}
- + \N{U+x...x}
- + \Uxxxx
- + \Uxxxxxxxx
+ + \\N{name}
+ + \\N{U+x...x}
+ + \\Uxxxx
+ + \\Uxxxxxxxx
  + a literal Unicode (non-ASCII) character."
 
   (let* ((\\N-name (match-string-no-properties 1))
@@ -358,9 +358,9 @@ This function recognizes the following strings:
       (:literal
        (string ucs)))))
 
-(provide 'unicode-escape)
-;;; unicode-escape.el ends here
+(provide 'unicode-esc)
+;;; unicode-esc.el ends here
 ;; Local Variables:
-;; read-symbol-shorthands: (("ue/" . "unicode-escape-"))
+;; read-symbol-shorthands: (("ue/" . "unicode-esc-"))
 ;; time-stamp-pattern: "20/Version:[\s\t]*\\(?:[[:digit:]]+[.]\\)+%y%m%d\n"
 ;; End:
