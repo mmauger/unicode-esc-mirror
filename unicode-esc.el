@@ -7,7 +7,7 @@
 ;; Keywords: lisp, faces, tools
 ;; Package-Type: simple
 ;; Package-Requires: ((emacs "29.1"))
-;; Version: 1.0.251003
+;; Version: 1.0.251004
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -87,7 +87,7 @@
         (unless prettify-symbols-mode
           (message "`unicode-esc-mode' requires enabling `prettify-symbols-mode'; now enabled.")
           (prettify-symbols-mode +1))
-        (font-lock-add-keywords nil ue/font-lock-keywords))
+        (font-lock-add-keywords nil ue/font-lock-keywords t))
     (font-lock-remove-keywords nil ue/font-lock-keywords))
   (font-lock-update))
 
@@ -96,9 +96,9 @@
 
 (defvar ue/font-lock-keywords
   `( ;; \N{name} or \N{U+xx..xx}
-     ( ,(rx ue/-N-escape) 0 (ue/prettify) )
+     ( ,(rx ue/-N-escape) . #1=(0 (ue/prettify)) )
      ;; \Uxxxx or \Uxxxxxxxx
-     ( ,(rx ue/-U-escape) 0 (ue/prettify) ))
+     ( ,(rx ue/-U-escape) . #1# ))
   "Define `font-lock' keywords to match Lisp \\N and \\U literals.")
 
 (defun ue/prettify ()
@@ -106,9 +106,8 @@
   (when-let* (ue/mode
               (esc  (match-string-no-properties 0))
               (ucs  (ue/-get-char)))
-    ;; ;; For debugging
-    ;; (add-text-properties (match-beginning 0) (match-end 0)
-    ;;                      (list 'help-echo (format "\N{Eyes} unicode-esc: \`%s\' %c" esc ucs)))
+    (add-text-properties (match-beginning 0) (match-end 0)
+                         (list 'help-echo (format "unicode-esc: \`%s\' %c" esc ucs)))
     (let ((prettify-symbols--current-symbol-bounds nil)
           (prettify-symbols-compose-predicate
            (lambda (_start _end _match) t)))
