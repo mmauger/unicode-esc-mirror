@@ -7,7 +7,7 @@
 ;; Keywords: lisp, faces, tools
 ;; Package-Type: simple
 ;; Package-Requires: ((emacs "29.1"))
-;; Version: 1.0.251001
+;; Version: 1.0.251003
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -57,6 +57,8 @@
                                       ue/-U-escape
                                       ue/-literal)))
 
+(defvar ue/font-lock-keywords)
+
 ;;; ============================================================
 ;;; Minor mode to fontify Unicode escape strings
 
@@ -72,6 +74,7 @@
   :init-value nil
   :lighter nil
   :keymap ue/mode-map
+  :group 'unicode-esc
   ;;
   ;; Examples:
   ;;   \N{Duck} \N{DUCK} \N{duck}
@@ -93,20 +96,26 @@
 
 (defvar ue/font-lock-keywords
   `( ;; \N{name} or \N{U+xx..xx}
-     ( ,(rx ue/-N-escape) (0 (ue/prettify)) )
+     ( ,(rx ue/-N-escape) 0 (ue/prettify) )
      ;; \Uxxxx or \Uxxxxxxxx
-     ( ,(rx ue/-U-escape) (0 (ue/prettify)) ))
+     ( ,(rx ue/-U-escape) 0 (ue/prettify) ))
   "Define `font-lock' keywords to match Lisp \\N and \\U literals.")
 
 (defun ue/prettify ()
   "Font lock Unicode escape with the Unicode character."
   (when-let* (ue/mode
-              (ucs      (ue/-get-char))
-              (old-esc  (match-string-no-properties 0))
-	      (alist    `((,old-esc . ,ucs))))
-    (let ((prettify-symbols-compose-predicate
-	   (lambda (_start _end _match) t)))
-      (prettify-symbols--compose-symbol alist))))
+              (esc  (match-string-no-properties 0))
+              (ucs  (ue/-get-char)))
+    ;; ;; For debugging
+    ;; (add-text-properties (match-beginning 0) (match-end 0)
+    ;;                      (list 'help-echo (format "\N{Eyes} unicode-esc: \`%s\' %c" esc ucs)))
+    (let ((prettify-symbols--current-symbol-bounds nil)
+          (prettify-symbols-compose-predicate
+           (lambda (_start _end _match) t)))
+           ;; (lambda (start end match)
+           ;;   (and (string= match esc)
+           ;;        (string= (buffer-substring-no-properties start end) match)))))
+      (prettify-symbols--compose-symbol `((,esc . ,ucs))))))
 
 ;;; ============================================================
 ;;; Settings for default generation of Unicode escapes
