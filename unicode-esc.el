@@ -7,7 +7,7 @@
 ;; Keywords: lisp, faces, tools
 ;; Package-Type: simple
 ;; Package-Requires: ((emacs "29.1"))
-;; Version: 1.0.251004
+;; Version: 1.0.251019
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -83,11 +83,9 @@
   ;;   🦆
   ;;
   (if ue/mode
-      (progn
-        (unless prettify-symbols-mode
-          (message "`unicode-esc-mode' requires enabling `prettify-symbols-mode'; now enabled.")
-          (prettify-symbols-mode +1))
-        (font-lock-add-keywords nil ue/font-lock-keywords t))
+      (if prettify-symbols-mode
+          (font-lock-add-keywords nil ue/font-lock-keywords t)
+        (add-hook 'prettify-symbols-mode-hook #'ue/mode))
     (font-lock-remove-keywords nil ue/font-lock-keywords))
   (font-lock-update))
 
