@@ -7,7 +7,7 @@
 ;; Keywords: lisp, faces, tools
 ;; Package-Type: simple
 ;; Package-Requires: ((emacs "29.1"))
-;; Version: 1.0.251019
+;; Version: 1.0.251127
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
