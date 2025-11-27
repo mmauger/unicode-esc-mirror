@@ -85,6 +85,8 @@
   (if ue/mode
       (if prettify-symbols-mode
           (font-lock-add-keywords nil ue/font-lock-keywords t)
+	(unless (local-variable-p 'prettify-symbols-alist)
+	  (setq prettify-symbols-alist nil))
         (add-hook 'prettify-symbols-mode-hook #'ue/mode))
     (font-lock-remove-keywords nil ue/font-lock-keywords))
   (font-lock-update))
