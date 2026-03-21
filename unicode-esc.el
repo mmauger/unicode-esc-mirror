@@ -46,8 +46,9 @@
 ;; \N{name} or \N{U+x…x}
 (rx-define ue/-N-escape      (seq ?\\ ?N ?{ (group-n 1 (+ (not (in ?})))) ?}))
 (rx-define ue/-N-U+xdigits   (seq string-start ?U ?+ (+ xdigit) string-end))
-;; \Uxxxx or \Uxxxxxxxx
-(rx-define ue/-U-escape      (seq ?\\ ?U (group-n 2 (= 4 xdigit) (? (= 4 xdigit)))))
+;; \uxxxx or \Uxxxxxxxx
+(rx-define ue/-U-escape      (seq ?\\ (or (seq ?U (group-n 2 (= 8 xdigit)))
+                                          (seq ?u (group-n 2 (= 4 xdigit))))))
 (rx-define ue/-U-xdigits     (seq string-start (+ xdigit) string-end))
 ;; c (> 127)
 (rx-define ue/-literal       (seq (group-n 3 (not ascii))))
@@ -97,7 +98,7 @@
 (defvar ue/font-lock-keywords
   `( ;; \N{name} or \N{U+xx..xx}
      ( ,(rx ue/-N-escape) . #1=(0 (ue/prettify)) )
-     ;; \Uxxxx or \Uxxxxxxxx
+     ;; \uxxxx or \Uxxxxxxxx
      ( ,(rx ue/-U-escape) . #1# ))
   "Define `font-lock' keywords to match Lisp \\N and \\U literals.")
 
@@ -150,23 +151,22 @@ When called interactively, STYLE is the prefix argument.  If omitted it
  prompt for the format."
 
   (interactive "p")
-  (if (looking-at (rx ue/-char-re))
-      (let* ((save-md    (match-data))
-             (end-esc    (match-end 0))
-             (old-esc    (match-string-no-properties 0))
-             (old-style  (ue/-get-style))
-             (ucs        (ue/-get-char))
-             (new-style  (ue/-style-argument style old-esc old-style ucs)))
-        (pcase new-style
-          ((or `:\\N `:\\U `:literal)
-            (let ((new-esc (ue/-replacement-string new-style ucs)))
-              (set-match-data save-md)
-              (if (string= old-esc new-esc)
-                  (goto-char end-esc)
-                (replace-match new-esc t t))))
-          (`quit
-           (goto-char end-esc))))
-    (forward-char 1)))
+  (let ((case-fold-search nil))
+    (when (looking-at (rx ue/-char-re))
+      (let* ((save-md   (match-data))
+             (end-esc   (match-end 0))
+             (old-esc   (match-string-no-properties 0))
+             (old-style (ue/-get-style))
+             (ucs       (ue/-get-char))
+             (new-style (ue/-style-argument style old-esc old-style ucs)))
+        (if (eq new-style 'quit)
+            (goto-char end-esc)
+          (let ((new-esc (ue/-replacement-string new-style ucs)))
+            (set-match-data save-md)
+            (if (string= old-esc new-esc)
+                (goto-char end-esc)
+              (replace-match new-esc t t))))
+        (forward-char 1)))))
 
 (defun ue/-style-argument (style old-esc old-style ucs)
   "Calculate the STYLE for UCS or revert to OLD-ESC style (OLD-STYLE)."
@@ -233,7 +233,10 @@ When called interactively, STYLE is the prefix argument.  If omitted it
  argument, the user may choose the style for each replacement string."
 
   (interactive "p")
-  (let (do-all do-quit do-replace)
+  (let ((case-fold-search nil)
+        (do-all nil)
+        (do-quit nil)
+        (do-replace nil))
     (save-excursion
       (while (and (not do-quit)
                   (re-search-forward (rx ue/-char-re) nil t))
@@ -300,7 +303,7 @@ Q/q  quit     Update no more"
 This function recognizes the following strings:
  + \\N{name}
  + \\N{U+x...x}
- + \\Uxxxx
+ + \\uxxxx
  + \\Uxxxxxxxx
  + a literal Unicode (non-ASCII) character."
   (let* ((\\N-name (match-string-no-properties 1))
@@ -317,7 +320,7 @@ This function recognizes the following strings:
 This function recognizes the following strings:
  + \\N{name}
  + \\N{U+x...x}
- + \\Uxxxx
+ + \\uxxxx
  + \\Uxxxxxxxx
  + a literal Unicode (non-ASCII) character."
 
@@ -341,12 +344,11 @@ This function recognizes the following strings:
 (defun ue/-replacement-string (style ucs)
   "Calculate the replacement string based on the STYLE escape of UCS."
   (let* ((name-case-param (assq ue/char-name-default-case
-                                '((identity   "u" "x")
-                                  (capitalize "U" "x")
-                                  (upcase     "U" "X")
-                                  (downcase   "u" "x"))))
-         (style-char      (nth 1 name-case-param))
-         (format-char     (nth 2 name-case-param)))
+                                '((identity   . "x")
+                                  (capitalize . "x")
+                                  (upcase     . "X")
+                                  (downcase   . "x"))))
+         (format-char     (cdr name-case-param)))
     (pcase style
       (:\\N
        (if-let* ((name (char-to-name ucs)))
@@ -356,10 +358,8 @@ This function recognizes the following strings:
                  "}")))
 
       (:\\U
-       (format (concat "\\" style-char "%"
-                       (if (> ucs #xffff)
-                           "08"
-                         "04")
+       (format (concat "\\" (if (> ucs #xffff) "U" "u")
+                       "%"  (if (> ucs #xffff) "08" "04")
                        format-char)
                ucs))
 
