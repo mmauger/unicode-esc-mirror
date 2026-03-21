@@ -94,11 +94,10 @@ escape style to use.
 * Installation
 Install the ~unicode-esc~ package as follows:
 #+BEGIN_SRC emacs-lisp
-  (use-package unicode-esc
-    :vc ( :url "https://gitlab.com/mmauger/unicode-esc"
-          :rev :newest )
-    :hook (emacs-lisp-mode)
-    )
+    (use-package unicode-esc
+      :vc ( :url "https://codeberg.org/mmauger/unicode-esc" )
+      :hook (emacs-lisp-mode)
+      )
 
 #+END_SRC
 
