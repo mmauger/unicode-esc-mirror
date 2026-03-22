@@ -131,9 +131,10 @@
 ;;;###autoload
 (defcustom ue/default-escape-style :\\N
   "Default Unicode escape format."
-  :type '(choice (const :tag "\\N{name}"       :\\N)
-                 (const :tag "\\Uxxxx"         :\\U)
-                 (const :tag "Literal Unicode" :literal)))
+  :type '(choice (const :tag "\\N{name}"                :\\N)
+                 (const :tag "\\N{U+xxxxxx}"            :\\N+U)
+                 (const :tag "\\uxxxx or \\Uxxxxxxxx"   :\\U)
+                 (const :tag "Literal Unicode"          :literal)))
 
 ;;; ============================================================
 ;;; Update Unicode escape at point
@@ -176,7 +177,7 @@ When called interactively, STYLE is the prefix argument.  If omitted it
              (= style 1)))
     ue/default-escape-style)
    ((and (keywordp style)
-         (memq style '(:\\N :\\U :literal)))
+         (memq style '(:\\N :\\N+U :\\U :literal)))
     style)
    ((numberp style)
     (let (new-style)
@@ -195,6 +196,7 @@ When called interactively, STYLE is the prefix argument.  If omitted it
             (pcase (read-key (format prompt old-esc))
               ((or `?n `?N)         :\\N)
               ((or `?u `?U)         :\\U)
+              (`?+                  :\\N+U)
               ((or `?l `?L)         :literal)
               (`?\s                 old-style)
               ((or `?q `?Q `?\C-g)  'quit)
@@ -212,6 +214,7 @@ When called interactively, STYLE is the prefix argument.  If omitted it
                         (or (caddr selector-and-style) (concat "`" new-esc "'")))))))
     `(("N" :\\N)
       ("U" :\\U)
+      ("+" :\\N+U)
       ("L" :literal)
       ("SPC" ,old-style "Same style")))
    "; "))
@@ -310,7 +313,10 @@ This function recognizes the following strings:
          (\\U-name (match-string-no-properties 2))
          (lit-name (match-string-no-properties 3)))
     (cond
-     (\\N-name  :\\N)
+     (\\N-name
+      (if (string-match-p (rx ue/-N-U+xdigits) \\N-name)
+          :\\N+U
+        :\\N))
      (\\U-name  :\\U)
      (lit-name  :literal))))
 
@@ -356,6 +362,11 @@ This function recognizes the following strings:
          (concat "\\N{U+"
                  (format (concat "%" format-char) ucs)
                  "}")))
+
+      (:\\N+U
+       (concat "\\N{U+"
+               (format (concat "%" format-char) ucs)
+               "}"))
 
       (:\\U
        (format (concat "\\" (if (> ucs #xffff) "U" "u")
