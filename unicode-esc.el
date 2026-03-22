@@ -7,7 +7,7 @@
 ;; Keywords: lisp, faces, tools
 ;; Package-Type: simple
 ;; Package-Requires: ((emacs "29.1"))
-;; Version: 1.0.251127
+;; Version: 1.1.260321
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -44,7 +44,11 @@
 ;;; Regular expressions to match Unicode escape strings
 
 ;; \N{name} or \N{U+x…x}
-(rx-define ue/-N-escape      (seq ?\\ ?N ?{ (group-n 1 (+ (not (in ?})))) ?}))
+(rx-define ue/-N-escape      (seq ?\\ ?N
+                                  ?{ (group-n 1 (+ (intersection
+                                                    (any (?\s . ?~)) ;; 7bit ASCII
+                                                    (not ?}))))
+                                  ?}))
 (rx-define ue/-N-U+xdigits   (seq string-start ?U ?+ (+ xdigit) string-end))
 ;; \uxxxx or \Uxxxxxxxx
 (rx-define ue/-U-escape      (seq ?\\ (or (seq ?U (group-n 2 (= 8 xdigit)))
@@ -189,7 +193,7 @@ When called interactively, STYLE is the prefix argument.  If omitted it
   "Ask for style of replacement for OLD-ESC (in OLD-STYLE) which is UCS."
   (let* ((prompt   (concat "Replace \"%s\" with: ("
                            (ue/-format-style-prompt old-esc old-style ucs)
-                           "; Q/C-g: Quit) "))
+                           "; SPC: Skip; Q/C-g: Quit) "))
          answer)
     (while (not answer)
       (setq answer
@@ -203,15 +207,18 @@ When called interactively, STYLE is the prefix argument.  If omitted it
               (_                    (ding) nil))))
     answer))
 
-(defun ue/-format-style-prompt (old-esc old-style ucs)
+(defun ue/-format-style-prompt (_old-esc old-style ucs)
   "Format prompt for styles for UCS that are different from OLD-ESC in OLD-STYLE."
   (string-join
    (mapcan
     (lambda (selector-and-style)
-      (let ((new-esc (ue/-replacement-string (cadr selector-and-style) ucs)))
-        (unless (string= new-esc old-esc)
-          (list (format "%s: %s" (car selector-and-style)
-                        (or (caddr selector-and-style) (concat "`" new-esc "'")))))))
+      (let* ((selector (car selector-and-style))
+             (new-style (cadr selector-and-style))
+             (new-descr (caddr selector-and-style))
+             (new-esc (ue/-replacement-string new-style ucs)))
+        (list (concat selector ": "
+                      (or new-descr
+                          (concat "\"" new-esc "\""))))))
     `(("N" :\\N)
       ("U" :\\U)
       ("+" :\\N+U)
@@ -249,18 +256,19 @@ When called interactively, STYLE is the prefix argument.  If omitted it
                (old-style  (ue/-get-style))
                (ucs        (ue/-get-char)))
           (when ucs
-            (setq style (ue/-style-argument style old-esc old-style ucs))
-            (unless (called-interactively-p 'interactive)
-              (setq do-all 'all))
-            (pcase (or do-all (ue/-query-update old-esc ucs style))
-              (`t            (setq do-replace t))
-              (`skip         (setq do-replace nil))
-              (`one-and-quit (setq do-replace t
-                                   do-quit t))
-              (`all          (setq do-replace t
-                                   do-all 'all))
-              (`quit         (setq do-replace nil
-                                   do-quit t)))
+            (setq style (ue/-style-argument style old-esc old-style ucs)
+                  do-replace nil
+                  do-quit nil)
+            (if (eq style 'quit)
+                (setq do-quit t)
+              (pcase (or do-all (ue/-query-update old-esc ucs style))
+                (`t            (setq do-replace t))
+                (`skip         (setq do-replace nil))
+                (`one-and-quit (setq do-replace t
+                                     do-quit t))
+                (`all          (setq do-replace t
+                                     do-all 'all))
+                (`quit         (setq do-quit t))))
             (if do-replace
                 (let ((new-esc (ue/-replacement-string style ucs)))
                   (set-match-data save-md)
@@ -336,7 +344,7 @@ This function recognizes the following strings:
     (cond
      (\\N-name
       (if (string-match-p (rx ue/-N-U+xdigits) \\N-name)
-          (string-to-number (substring \\N-name 1) 16)
+          (string-to-number (substring \\N-name 2) 16)
         (char-from-name \\N-name t)))
 
      (\\U-name
